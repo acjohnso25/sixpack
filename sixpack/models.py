@@ -258,7 +258,7 @@ class Experiment(object):
 
         if revenue is not None:
             alternative.record_revenue(revenue, dt=dt)
-        else
+        else:
             alternative.record_revenue(1.0, dt=dt)
 
         return alternative
