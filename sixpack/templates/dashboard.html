@@ -100,8 +100,8 @@
               <% } %>
             </div>
           </td>
-          <td><%- alt.completed_count %> / <%- alt.participant_count %></td>
-          <td><%- alt.conversion_rate %> <span class="confidence-interval">&plusmn; <%- alt.confidence_interval %></span></td>
+          <td><%- alt.completed_count %> / <%- alt.participant_count %> / <%- alt.revenue_total %></td>
+          <td><%- alt.conversion_rate %> / <%- alt.revenue_rate %><span class="confidence-interval">&plusmn; <%- alt.confidence_interval %></span></td>
           <td><span title="<%- alt.test_statistic %>"><%= alt.confidence_level %><span></td>
         </tr>
       <% }); %>
