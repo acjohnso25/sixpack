@@ -449,7 +449,7 @@ class Experiment(object):
             experiment.set_traffic_fraction(traffic_fraction)
             experiment.save()
 
-        # Only check traffic fraction if the experiment is being updated 
+        # Only check traffic fraction if the experiment is being updated
         # and the traffic fraction actually changes.
         if is_update and experiment.traffic_fraction != traffic_fraction:
             experiment.set_traffic_fraction(traffic_fraction)
@@ -722,7 +722,7 @@ class Alternative(object):
             _key("r:{0}:{1}:users:{2}".format(experiment_key, self.name, date.strftime('%Y-%m'))),
             _key("r:{0}:{1}:users:{2}".format(experiment_key, self.name, date.strftime('%Y-%m-%d'))),
         ]
-        mincrbyfloat(keys=keys, revenue=revenue)
+        mincrbyfloat(keys=keys, args=[revenue])
 
     def conversion_rate(self):
         try:
