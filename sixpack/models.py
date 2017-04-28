@@ -7,7 +7,7 @@ import re
 import redis
 
 from config import CONFIG as cfg
-from db import _key, msetbit, sequential_id, first_key_with_bit_set
+from db import _key, msetbit, mincrbyfloat, sequential_id, first_key_with_bit_set
 
 # This is pretty restrictive, but we can always relax it later.
 VALID_EXPERIMENT_ALTERNATIVE_RE = re.compile(r"^[a-z0-9][a-z0-9\-_]*$", re.I)
@@ -234,7 +234,7 @@ class Experiment(object):
     def is_paused(self):
         return self.redis.hexists(self.key(), 'paused')
 
-    def convert(self, client, dt=None, kpi=None):
+    def convert(self, client, dt=None, kpi=None, revenue=None):
         if self.is_archived():
             raise ValueError('this experiment is archived and can no longer be updated')
 
@@ -255,6 +255,11 @@ class Experiment(object):
 
         if not self.existing_conversion(client):
             alternative.record_conversion(client, dt=dt)
+
+        if revenue is not None:
+            alternative.record_revenue(revenue, dt=dt)
+        else
+            alternative.record_revenue(1.0, dt=dt)
 
         return alternative
 
@@ -551,11 +556,13 @@ class Alternative(object):
             'name': self.name,
             'data': data,
             'conversion_rate': float('%.2f' % (self.conversion_rate() * 100)),
+            'revenue_rate': float('%.3f' % (self.revenue_rate())),
             'is_control': self.is_control(),
             'is_winner': self.is_winner(),
             'test_statistic': self.g_stat(),
             'participant_count': self.participant_count(),
             'completed_count': self.completed_count(),
+            'revenue_total': self.revenue_total(),
             'confidence_level': self.confidence_level(),
             'confidence_interval': self.confidence_interval()
         }
@@ -585,6 +592,10 @@ class Alternative(object):
     def completed_count(self):
         key = _key("c:{0}:{1}:users:all".format(self.experiment.kpi_key(), self.name))
         return self.redis.bitcount(key)
+
+    def revenue_total(self):
+        key = _key("r:{0}:{1}:users:all".format(self.experiment.kpi_key(), self.name))
+        return float(self.redis.get(key))
 
     def conversions_by_day(self):
         return self._get_stats('conversions', 'days')
@@ -684,9 +695,44 @@ class Alternative(object):
         ]
         msetbit(keys=keys, args=([self.experiment.sequential_id(client), 1] * len(keys)))
 
+    def record_revenue(self, revenue, dt=None):
+        """Record a revenue in a test along with a given variation"""
+        if dt is None:
+            date = datetime.now()
+        else:
+            date = dt
+
+        experiment_key = self.experiment.kpi_key()
+
+        pipe = self.redis.pipeline()
+
+        pipe.sadd(_key("r:{0}:years".format(experiment_key)), date.strftime('%Y'))
+        pipe.sadd(_key("r:{0}:months".format(experiment_key)), date.strftime('%Y-%m'))
+        pipe.sadd(_key("r:{0}:days".format(experiment_key)), date.strftime('%Y-%m-%d'))
+
+        pipe.execute()
+
+        keys = [
+            _key("r:{0}:_all:users:all".format(experiment_key)),
+            _key("r:{0}:_all:users:{1}".format(experiment_key, date.strftime('%Y'))),
+            _key("r:{0}:_all:users:{1}".format(experiment_key, date.strftime('%Y-%m'))),
+            _key("r:{0}:_all:users:{1}".format(experiment_key, date.strftime('%Y-%m-%d'))),
+            _key("r:{0}:{1}:users:all".format(experiment_key, self.name)),
+            _key("r:{0}:{1}:users:{2}".format(experiment_key, self.name, date.strftime('%Y'))),
+            _key("r:{0}:{1}:users:{2}".format(experiment_key, self.name, date.strftime('%Y-%m'))),
+            _key("r:{0}:{1}:users:{2}".format(experiment_key, self.name, date.strftime('%Y-%m-%d'))),
+        ]
+        mincrbyfloat(keys=keys, revenue=revenue)
+
     def conversion_rate(self):
         try:
             return self.completed_count() / float(self.participant_count())
+        except ZeroDivisionError:
+            return 0
+
+    def revenue_rate(self):
+        try:
+            return self.revenue_total() / float(self.participant_count())
         except ZeroDivisionError:
             return 0
 
