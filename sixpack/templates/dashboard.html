@@ -81,6 +81,7 @@
         <th>Case</th>
         <th>Conversions</th>
         <th>Conv Rate</th>
+        <th>Revenue</th>
         <th>Confidence</th>
       </tr>
     </thead>
@@ -100,8 +101,9 @@
               <% } %>
             </div>
           </td>
-          <td><%- alt.completed_count %> / <%- alt.participant_count %> / <%- alt.revenue_total %></td>
-          <td><%- alt.conversion_rate %> / <%- alt.revenue_rate %><span class="confidence-interval">&plusmn; <%- alt.confidence_interval %></span></td>
+          <td><%- alt.completed_count %> / <%- alt.participant_count %></td>
+          <td><%- alt.conversion_rate %><span class="confidence-interval">&plusmn; <%- alt.confidence_interval %></span></td>
+          <td><%- alt.revenue_total %> / <%- alt.revenue_rate %></td>
           <td><span title="<%- alt.test_statistic %>"><%= alt.confidence_level %><span></td>
         </tr>
       <% }); %>

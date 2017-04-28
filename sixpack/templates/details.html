@@ -81,6 +81,7 @@
         <th>Case</th>
         <th>Conversions</th>
         <th>Conv Rate</th>
+        <th>Revenue</th>
         <th>Confidence</th>
         <th>Actions</th>
       </tr>
@@ -99,9 +100,9 @@
               <% } %>
             </div>
           </td>
-          <td><%- alt.completed_count %> / <%- alt.participant_count %> / <%- alt.revenue_total %></td>
+          <td><%- alt.completed_count %> / <%- alt.participant_count %></td>
           <td>
-            <%- alt.conversion_rate %> / <%- alt.revenue_rate %>
+            <%- alt.conversion_rate %>
             <span class="confidence-interval">&plusmn; <%- alt.confidence_interval %></span>
 
             <div class="boxplot"><div class="boxplot-inner">
@@ -110,6 +111,7 @@
               <div class="boxplot-box boxplot-winning" style="display: <%- alt.boxplot.winning.display %>; left: <%- alt.boxplot.winning.start %>%; right: <%- 100 - alt.boxplot.winning.end %>%;"></div>
             </div></div>
           </td>
+          <td><%- alt.revenue_total %> / <%- alt.revenue_rate %></td>
           <td><span title="<%- alt.test_statistic %>"><%= alt.confidence_level %><span></td>
           <td>
             <div class="alt-controls">
