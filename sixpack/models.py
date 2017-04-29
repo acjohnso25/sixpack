@@ -7,7 +7,7 @@ import re
 import redis
 
 from config import CONFIG as cfg
-from db import _key, msetbit, mincrbyfloat, sequential_id, first_key_with_bit_set
+from db import _key, msetbit, mincrby, mincrbyfloat, sequential_id, first_key_with_bit_set
 
 # This is pretty restrictive, but we can always relax it later.
 VALID_EXPERIMENT_ALTERNATIVE_RE = re.compile(r"^[a-z0-9][a-z0-9\-_]*$", re.I)
@@ -234,7 +234,7 @@ class Experiment(object):
     def is_paused(self):
         return self.redis.hexists(self.key(), 'paused')
 
-    def convert(self, client, dt=None, kpi=None, revenue=None):
+    def convert(self, client, dt=None, kpi=None, ratio=None):
         if self.is_archived():
             raise ValueError('this experiment is archived and can no longer be updated')
 
@@ -253,13 +253,7 @@ class Experiment(object):
                 raise ValueError('invalid kpi name')
             self.add_kpi(kpi)
 
-        if not self.existing_conversion(client):
-            alternative.record_conversion(client, dt=dt)
-
-        if revenue is not None:
-            alternative.record_revenue(revenue, dt=dt)
-        else:
-            alternative.record_revenue(1.0, dt=dt)
+        alternative.record_conversion(client, dt=dt, ratio=ratio)
 
         return alternative
 
@@ -556,13 +550,13 @@ class Alternative(object):
             'name': self.name,
             'data': data,
             'conversion_rate': float('%.2f' % (self.conversion_rate() * 100)),
-            'revenue_rate': float('%.3f' % (self.revenue_rate())),
+            'revenue_rate': self.revenue_rate(),
             'is_control': self.is_control(),
             'is_winner': self.is_winner(),
             'test_statistic': self.g_stat(),
             'participant_count': self.participant_count(),
+            'attempted_count': self.attempted_count(),
             'completed_count': self.completed_count(),
-            'revenue_total': self.revenue_total(),
             'confidence_level': self.confidence_level(),
             'confidence_interval': self.confidence_interval()
         }
@@ -589,13 +583,15 @@ class Alternative(object):
     def participants_by_year(self):
         return self._get_stats('participations', 'years')
 
+    def attempted_count(self):
+        key = _key("n:{0}:{1}:users:all".format(self.experiment.kpi_key(), self.name))
+        val = self.redis.get(key)
+        return int(val) if val is not None else 0
+
     def completed_count(self):
         key = _key("c:{0}:{1}:users:all".format(self.experiment.kpi_key(), self.name))
-        return self.redis.bitcount(key)
-
-    def revenue_total(self):
-        key = _key("r:{0}:{1}:users:all".format(self.experiment.kpi_key(), self.name))
-        return float(self.redis.get(key))
+        val = self.redis.get(key)
+        return float(val) if val is not None else 0.0
 
     def conversions_by_day(self):
         return self._get_stats('conversions', 'days')
@@ -666,7 +662,7 @@ class Alternative(object):
         ]
         msetbit(keys=keys, args=([self.experiment.sequential_id(client), 1] * len(keys)))
 
-    def record_conversion(self, client, dt=None):
+    def record_conversion(self, client, dt=None, ratio=None):
         """Record a user's conversion in a test along with a given variation"""
         if dt is None:
             date = datetime.now()
@@ -684,6 +680,18 @@ class Alternative(object):
         pipe.execute()
 
         keys = [
+            _key("n:{0}:_all:users:all".format(experiment_key)),
+            _key("n:{0}:_all:users:{1}".format(experiment_key, date.strftime('%Y'))),
+            _key("n:{0}:_all:users:{1}".format(experiment_key, date.strftime('%Y-%m'))),
+            _key("n:{0}:_all:users:{1}".format(experiment_key, date.strftime('%Y-%m-%d'))),
+            _key("n:{0}:{1}:users:all".format(experiment_key, self.name)),
+            _key("n:{0}:{1}:users:{2}".format(experiment_key, self.name, date.strftime('%Y'))),
+            _key("n:{0}:{1}:users:{2}".format(experiment_key, self.name, date.strftime('%Y-%m'))),
+            _key("n:{0}:{1}:users:{2}".format(experiment_key, self.name, date.strftime('%Y-%m-%d'))),
+        ]
+        mincrby(keys=keys, args=([1] * len(keys)))
+
+        keys = [
             _key("c:{0}:_all:users:all".format(experiment_key)),
             _key("c:{0}:_all:users:{1}".format(experiment_key, date.strftime('%Y'))),
             _key("c:{0}:_all:users:{1}".format(experiment_key, date.strftime('%Y-%m'))),
@@ -693,46 +701,18 @@ class Alternative(object):
             _key("c:{0}:{1}:users:{2}".format(experiment_key, self.name, date.strftime('%Y-%m'))),
             _key("c:{0}:{1}:users:{2}".format(experiment_key, self.name, date.strftime('%Y-%m-%d'))),
         ]
-        msetbit(keys=keys, args=([self.experiment.sequential_id(client), 1] * len(keys)))
-
-    def record_revenue(self, revenue, dt=None):
-        """Record a revenue in a test along with a given variation"""
-        if dt is None:
-            date = datetime.now()
-        else:
-            date = dt
-
-        experiment_key = self.experiment.kpi_key()
-
-        pipe = self.redis.pipeline()
-
-        pipe.sadd(_key("r:{0}:years".format(experiment_key)), date.strftime('%Y'))
-        pipe.sadd(_key("r:{0}:months".format(experiment_key)), date.strftime('%Y-%m'))
-        pipe.sadd(_key("r:{0}:days".format(experiment_key)), date.strftime('%Y-%m-%d'))
-
-        pipe.execute()
-
-        keys = [
-            _key("r:{0}:_all:users:all".format(experiment_key)),
-            _key("r:{0}:_all:users:{1}".format(experiment_key, date.strftime('%Y'))),
-            _key("r:{0}:_all:users:{1}".format(experiment_key, date.strftime('%Y-%m'))),
-            _key("r:{0}:_all:users:{1}".format(experiment_key, date.strftime('%Y-%m-%d'))),
-            _key("r:{0}:{1}:users:all".format(experiment_key, self.name)),
-            _key("r:{0}:{1}:users:{2}".format(experiment_key, self.name, date.strftime('%Y'))),
-            _key("r:{0}:{1}:users:{2}".format(experiment_key, self.name, date.strftime('%Y-%m'))),
-            _key("r:{0}:{1}:users:{2}".format(experiment_key, self.name, date.strftime('%Y-%m-%d'))),
-        ]
-        mincrbyfloat(keys=keys, args=[revenue])
+        # msetbit(keys=keys, args=([self.experiment.sequential_id(client), 1] * len(keys)))
+        mincrbyfloat(keys=keys, args=([ratio if ratio is not None else 1.0] * len(keys)))
 
     def conversion_rate(self):
         try:
-            return self.completed_count() / float(self.participant_count())
+            return self.completed_count() / float(self.attempted_count())
         except ZeroDivisionError:
             return 0
 
     def revenue_rate(self):
         try:
-            return self.revenue_total() / float(self.participant_count())
+            return self.completed_count() / float(self.participant_count())
         except ZeroDivisionError:
             return 0
 
@@ -746,8 +726,8 @@ class Alternative(object):
 
         alt_conversions = self.completed_count()
         control_conversions = control.completed_count()
-        alt_failures = self.participant_count() - alt_conversions
-        control_failures = control.participant_count() - control_conversions
+        alt_failures = self.attempted_count() - alt_conversions
+        control_failures = control.attempted_count() - control_conversions
 
         total_conversions = alt_conversions + control_conversions
 
@@ -755,12 +735,12 @@ class Alternative(object):
             # small sample size of conversions, see where it goes for a bit
             return 'N/A'
 
-        total_participants = self.participant_count() + control.participant_count()
+        total_participants = self.attempted_count() + control.attempted_count()
 
-        expected_control_conversions = control.participant_count() * total_conversions / float(total_participants)
-        expected_alt_conversions = self.participant_count() * total_conversions / float(total_participants)
-        expected_control_failures = control.participant_count() - expected_control_conversions
-        expected_alt_failures = self.participant_count() - expected_alt_conversions
+        expected_control_conversions = control.attempted_count() * total_conversions / float(total_participants)
+        expected_alt_conversions = self.attempted_count() * total_conversions / float(total_participants)
+        expected_control_failures = control.attempted_count() - expected_control_conversions
+        expected_alt_failures = self.attempted_count() - expected_alt_conversions
 
         try:
             g_stat = 2 * (      alt_conversions * log(alt_conversions / expected_alt_conversions) \
@@ -781,8 +761,8 @@ class Alternative(object):
         ctr_e = self.conversion_rate()
         ctr_c = control.conversion_rate()
 
-        e = self.participant_count()
-        c = control.participant_count()
+        e = self.attempted_count()
+        c = control.attempted_count()
 
         try:
             std_dev = pow(((ctr_e / pow(ctr_c, 3)) * ((e * ctr_e) + (c * ctr_c) - (ctr_c * ctr_e) * (c + e)) / (c * e)), 0.5)
@@ -844,7 +824,7 @@ class Alternative(object):
         try:
             # 80% confidence
             p = self.conversion_rate()
-            return pow(p * (1 - p) / self.participant_count(), 0.5) * 1.28 * 100
+            return pow(p * (1 - p) / self.attempted_count(), 0.5) * 1.28 * 100
         except ZeroDivisionError:
             return 0
 

@@ -56,9 +56,23 @@ msetbit = REDIS.register_script("""
     return redis.status_reply('ok')
 """)
 
+mincrby = REDIS.register_script("""
+    for index, value in ipairs(KEYS) do
+        redis.call('incrby', value, ARGV[index])
+    end
+    return redis.status_reply('ok')
+""")
+
 mincrbyfloat = REDIS.register_script("""
     for index, value in ipairs(KEYS) do
-        redis.call('incrbyfloat', value, ARGV[1])
+        redis.call('incrbyfloat', value, ARGV[index])
+    end
+    return redis.status_reply('ok')
+""")
+
+mzincrby = REDIS.register_script("""
+    for index, value in ipairs(KEYS) do
+        redis.call('zincrby', value, ARGV[(index - 1) * 2 + 1], ARGV[(index - 1) * 2 + 2])
     end
     return redis.status_reply('ok')
 """)

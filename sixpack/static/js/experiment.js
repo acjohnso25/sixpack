@@ -46,8 +46,10 @@ $(function () {
       // Format the rest of the data
       _.each(data.alternatives, function (alt, k) {
         data.alternatives[k].participant_count   = my.addCommas(alt.participant_count);
-        data.alternatives[k].completed_count     = my.addCommas(alt.completed_count);
+        data.alternatives[k].attempted_count     = my.addCommas(alt.attempted_count);
+        data.alternatives[k].completed_count     = Math.round(alt.completed_count * 1000) / 1000;
         data.alternatives[k].conversion_rate     = alt.conversion_rate.toFixed(2) + '%';
+        data.alternatives[k].revenue_rate        = alt.revenue_rate.toFixed(3);
         data.alternatives[k].confidence_interval = alt.confidence_interval.toFixed(1) + '%';
         data.alternatives[k].confidence_level    = alt.confidence_level.replace('N/A', '&mdash;');
       });
