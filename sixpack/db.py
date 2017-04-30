@@ -70,13 +70,19 @@ mincrbyfloat = REDIS.register_script("""
     return redis.status_reply('ok')
 """)
 
-mzincrby = REDIS.register_script("""
+mhincrby = REDIS.register_script("""
     for index, value in ipairs(KEYS) do
-        redis.call('zincrby', value, ARGV[(index - 1) * 2 + 1], ARGV[(index - 1) * 2 + 2])
+        redis.call('hincrby', value, ARGV[(index - 1) * 2 + 1], ARGV[(index - 1) * 2 + 2])
     end
     return redis.status_reply('ok')
 """)
 
+mhincrbyfloat = REDIS.register_script("""
+    for index, value in ipairs(KEYS) do
+        redis.call('hincrbyfloat', value, ARGV[(index - 1) * 2 + 1], ARGV[(index - 1) * 2 + 2])
+    end
+    return redis.status_reply('ok')
+""")
 
 first_key_with_bit_set = REDIS.register_script("""
     for index, value in ipairs(KEYS) do
