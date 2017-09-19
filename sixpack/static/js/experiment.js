@@ -33,6 +33,7 @@ $(function () {
 
     // Add commas to a number
     my.addCommas = function (n) {
+      n = n || 0;
       while (/(\d+)(\d{3})/.test(n.toString())) {
         n = n.toString().replace(/(\d+)(\d{3})/, '$1'+','+'$2');
       }
