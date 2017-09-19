@@ -24,6 +24,33 @@ def participate(experiment, alternatives, client_id,
 
     return alt
 
+def visit(experiment, client_id,
+    datetime=None,
+    redis=None):
+
+    exp = Experiment.find(experiment, redis=redis)
+
+    if cfg.get('enabled', True):
+        client = Client(client_id, redis=redis)
+        alt = exp.visit(client, dt=datetime)
+    else:
+        alt = exp.control
+
+    return alt
+
+def interact(experiment, client_id,
+    datetime=None,
+    redis=None):
+
+    exp = Experiment.find(experiment, redis=redis)
+
+    if cfg.get('enabled', True):
+        client = Client(client_id, redis=redis)
+        alt = exp.interact(client, dt=datetime)
+    else:
+        alt = exp.control
+
+    return alt
 
 def convert(experiment, client_id,
     kpi=None,

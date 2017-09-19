@@ -10,7 +10,7 @@ from werkzeug.routing import Map, Rule
 from werkzeug.exceptions import HTTPException, NotFound
 
 from . import __version__
-from api import participate, convert
+from api import participate, visit, interact, convert
 
 from config import CONFIG as cfg
 from metrics import init_statsd
@@ -38,6 +38,8 @@ class Sixpack(object):
             Rule('/', endpoint='home'),
             Rule('/_status', endpoint='status'),
             Rule('/participate', endpoint='participate'),
+            Rule('/visit', endpoint='visit'),
+            Rule('/interact', endpoint='interact'),
             Rule('/convert', endpoint='convert'),
             Rule('/experiments/<name>', endpoint='experiment_details'),
             Rule('/favicon.ico', endpoint='favicon')
@@ -142,6 +144,72 @@ class Sixpack(object):
                 'kpi': kpi
             },
             'client_id': client_id
+        }
+
+        return json_success(resp, request)
+
+    @service_unavailable_on_connection_error
+    def on_interact(self, request):
+        if should_exclude_visitor(request):
+            return json_success({'excluded': 'true'}, request)
+
+        experiment_name = request.args.get('experiment')
+        client_id = request.args.get('client_id')
+
+        if client_id is None or experiment_name is None:
+            return json_error({'message': 'missing arguments'}, request, 400)
+
+        dt = None
+        if request.args.get("datetime"):
+            dt = dateutil.parser.parse(request.args.get("datetime"))
+
+        try:
+            alt = interact(experiment_name, client_id, datetime=dt, redis=self.redis)
+        except ValueError as e:
+            return json_error({'message': str(e)}, request, 400)
+
+        resp = {
+            'alternative': {
+                'name': alt.name
+            },
+            'experiment': {
+                'name': alt.experiment.name,
+            },
+            'client_id': client_id,
+            'status': 'ok'
+        }
+
+        return json_success(resp, request)
+
+    @service_unavailable_on_connection_error
+    def on_visit(self, request):
+        if should_exclude_visitor(request):
+            return json_success({'excluded': 'true'}, request)
+
+        experiment_name = request.args.get('experiment')
+        client_id = request.args.get('client_id')
+
+        if client_id is None or experiment_name is None:
+            return json_error({'message': 'missing arguments'}, request, 400)
+
+        dt = None
+        if request.args.get("datetime"):
+            dt = dateutil.parser.parse(request.args.get("datetime"))
+
+        try:
+            alt = visit(experiment_name, client_id, datetime=dt, redis=self.redis)
+        except ValueError as e:
+            return json_error({'message': str(e)}, request, 400)
+
+        resp = {
+            'alternative': {
+                'name': alt.name
+            },
+            'experiment': {
+                'name': alt.experiment.name,
+            },
+            'client_id': client_id,
+            'status': 'ok'
         }
 
         return json_success(resp, request)

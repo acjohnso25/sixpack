@@ -255,6 +255,42 @@ class Experiment(object):
     def is_paused(self):
         return self.redis.hexists(self.key(), 'paused')
 
+    def visit(self, client, dt=None):
+        if self.is_archived():
+            raise ValueError('this experiment is archived and can no longer be updated')
+
+        if self.is_paused():
+            raise ValueError('this experiment is paused and can not receive updates.')
+
+        if self.is_client_excluded(client):
+            raise ValueError('this client was not participating')
+
+        alternative = self.existing_alternative(client)
+        if not alternative:
+            raise ValueError('this client was not participating')
+
+        alternative.record_visit(client, dt=dt)
+
+        return alternative
+
+    def interact(self, client, dt=None):
+        if self.is_archived():
+            raise ValueError('this experiment is archived and can no longer be updated')
+
+        if self.is_paused():
+            raise ValueError('this experiment is paused and can not receive updates.')
+
+        if self.is_client_excluded(client):
+            raise ValueError('this client was not participating')
+
+        alternative = self.existing_alternative(client)
+        if not alternative:
+            raise ValueError('this client was not participating')
+
+        alternative.record_interaction(client, dt=dt)
+
+        return alternative
+
     def convert(self, client, dt=None, kpi=None, ratio=None):
         if self.is_archived():
             raise ValueError('this experiment is archived and can no longer be updated')
@@ -274,7 +310,6 @@ class Experiment(object):
                 raise ValueError('invalid kpi name')
             self.add_kpi(kpi)
 
-        alternative.record_visit(client, dt=dt)
         alternative.record_conversion(client, dt=dt, ratio=ratio)
 
         return alternative
@@ -540,29 +575,41 @@ class Alternative(object):
         PERIOD_TO_METHOD_MAP = {
             'day': {
                 'participants': self.participants_by_day,
+                'visits': self.visits_by_day,
+                'interactions': self.interactions_by_day,
                 'conversions': self.conversions_by_day
             },
             'month': {
                 'participants': self.participants_by_month,
+                'visits': self.visits_by_month,
+                'interactions': self.interactions_by_month,
                 'conversions': self.conversions_by_month
             },
             'year': {
                 'participants': self.participants_by_year,
+                'visits': self.visits_by_year,
+                'interactions': self.interactions_by_year,
                 'conversions': self.conversions_by_year
             },
         }
 
         data = []
         conversion_fn = PERIOD_TO_METHOD_MAP[period]['conversions']
+        interactions_fn = PERIOD_TO_METHOD_MAP[period]['interactions']
+        visits_fn = PERIOD_TO_METHOD_MAP[period]['visits']
         participants_fn = PERIOD_TO_METHOD_MAP[period]['participants']
 
         conversions = conversion_fn()
+        interactions = interactions_fn()
+        visits = visits_fn()
         participants = participants_fn()
 
-        dates = sorted(list(set(conversions.keys() + participants.keys())))
+        dates = sorted(list(set(conversions.keys() + interactions.keys() + visits.keys() + participants.keys())))
         for date in dates:
             _data = {
                 'conversions': conversions.get(date, 0),
+                'interactions': interactions.get(date, 0),
+                'visits': visits.get(date, 0),
                 'participants': participants.get(date, 0),
                 'date': date
             }
@@ -621,6 +668,20 @@ class Alternative(object):
     def visits_by_year(self):
         return self._get_stats('visits', 'years')
 
+    def interaction_count(self):
+        key = _key("i:{0}:{1}:all".format(self.experiment.name, self.name))
+        val = self.redis.get(key)
+        return int(val) if val is not None else 0
+
+    def interactions_by_day(self):
+        return self._get_stats('interactions', 'days')
+
+    def interactions_by_month(self):
+        return self._get_stats('interactions', 'months')
+
+    def interactions_by_year(self):
+        return self._get_stats('interactions', 'years')
+
     def completed_count(self):
         key = _key("c:{0}:{1}:all".format(self.experiment.kpi_key(), self.name))
         val = self.redis.get(key)
@@ -640,6 +701,11 @@ class Alternative(object):
         val = self.redis.hgetall(key)
         return val if val is not None else {}
 
+    def user_interaction_counts(self):
+        key = _key("i:{0}:{1}:users:all".format(self.experiment.name, self.name))
+        val = self.redis.hgetall(key)
+        return val if val is not None else {}
+
     def user_completed_counts(self):
         key = _key("c:{0}:{1}:users:all".format(self.experiment.kpi_key(), self.name))
         val = self.redis.hgetall(key)
@@ -651,6 +717,9 @@ class Alternative(object):
             exp_key = self.experiment.name
         elif stat_type == 'visits':
             stat_type = 'v'
+            exp_key = self.experiment.name
+        elif stat_type == 'interactions':
+            stat_type = 'i'
             exp_key = self.experiment.name
         elif stat_type == 'conversions':
             stat_type = 'c'
@@ -753,6 +822,47 @@ class Alternative(object):
         ]
         mhincrby(keys=keys, args=([self.experiment.sequential_id(client), 1] * len(keys)))
 
+    def record_interaction(self, client, dt=None):
+        """Record a user's interaction in a test along with a given variation"""
+        if dt is None:
+            date = datetime.now()
+        else:
+            date = dt
+
+        experiment_key = self.experiment.name
+
+        pipe = self.redis.pipeline()
+
+        pipe.sadd(_key("i:{0}:years".format(experiment_key)), date.strftime('%Y'))
+        pipe.sadd(_key("i:{0}:months".format(experiment_key)), date.strftime('%Y-%m'))
+        pipe.sadd(_key("i:{0}:days".format(experiment_key)), date.strftime('%Y-%m-%d'))
+
+        pipe.execute()
+
+        keys = [
+            _key("i:{0}:_all:all".format(experiment_key)),
+            _key("i:{0}:_all:{1}".format(experiment_key, date.strftime('%Y'))),
+            _key("i:{0}:_all:{1}".format(experiment_key, date.strftime('%Y-%m'))),
+            _key("i:{0}:_all:{1}".format(experiment_key, date.strftime('%Y-%m-%d'))),
+            _key("i:{0}:{1}:all".format(experiment_key, self.name)),
+            _key("i:{0}:{1}:{2}".format(experiment_key, self.name, date.strftime('%Y'))),
+            _key("i:{0}:{1}:{2}".format(experiment_key, self.name, date.strftime('%Y-%m'))),
+            _key("i:{0}:{1}:{2}".format(experiment_key, self.name, date.strftime('%Y-%m-%d'))),
+        ]
+        mincrby(keys=keys, args=([1] * len(keys)))
+
+        keys = [
+            _key("i:{0}:_all:users:all".format(experiment_key)),
+            _key("i:{0}:_all:users:{1}".format(experiment_key, date.strftime('%Y'))),
+            _key("i:{0}:_all:users:{1}".format(experiment_key, date.strftime('%Y-%m'))),
+            _key("i:{0}:_all:users:{1}".format(experiment_key, date.strftime('%Y-%m-%d'))),
+            _key("i:{0}:{1}:users:all".format(experiment_key, self.name)),
+            _key("i:{0}:{1}:users:{2}".format(experiment_key, self.name, date.strftime('%Y'))),
+            _key("i:{0}:{1}:users:{2}".format(experiment_key, self.name, date.strftime('%Y-%m'))),
+            _key("i:{0}:{1}:users:{2}".format(experiment_key, self.name, date.strftime('%Y-%m-%d'))),
+        ]
+        mhincrby(keys=keys, args=([self.experiment.sequential_id(client), 1] * len(keys)))
+
     def record_conversion(self, client, dt=None, ratio=None):
         """Record a user's conversion in a test along with a given variation"""
         if dt is None:
@@ -797,9 +907,15 @@ class Alternative(object):
         ]
         mhincrbyfloat(keys=keys, args=([self.experiment.sequential_id(client), ratio] * len(keys)))
 
-    def conversion_per_visit(self):
+    def conversion_per_interaction(self):
         try:
-            return self.completed_count() / float(self.visit_count())
+            return self.completed_count() / float(self.interaction_count())
+        except ZeroDivisionError:
+            return 0
+
+    def interactions_per_visit(self):
+        try:
+            return self.interaction_count() / float(self.visit_count())
         except ZeroDivisionError:
             return 0
 
@@ -810,16 +926,64 @@ class Alternative(object):
             return 0
 
     def conversion_rate(self):
+        user_interactions = self.user_interaction_counts()
+        user_completions = self.user_completed_counts()
+        return self.mean_of_users(user_interactions, user_completions)
+
+    def visit_interaction_rate(self):
+        user_visits = self.user_visit_counts()
+        user_interactions = self.user_interaction_counts()
+        return self.mean_of_users(user_visits, user_interactions)
+
+    def visit_conversion_rate(self):
         user_visits = self.user_visit_counts()
         user_completions = self.user_completed_counts()
-        keys = user_visits.keys()
-        # average conversion rate across users rather than visits
+        return self.mean_of_users(user_visits, user_completions)
+
+    def mean_of_users(self, user_totals, user_convs):
+        keys = user_totals.keys()
+        # calculate average conversion rate for each user
         val = 0.0
         for k in keys:
-            if user_completions.has_key(k):
-                val += float(user_completions[k]) / float(user_visits[k])
+            if user_convs.has_key(k):
+                val += float(user_convs[k]) / float(user_totals[k])
         try:
+            # then average across users, to normalize for user level of activity
             return val / float(self.participant_count())
+        except ZeroDivisionError:
+            return 0
+
+    def visits_stdev(self):
+        users = {}
+        user_visits = self.user_visit_counts()
+        for k in user_visits.keys():
+            users[k] = 1.0
+        return self.stdev_of_users(users, user_visits)
+
+    def visit_interactions_stdev(self):
+        user_visits = self.user_visit_counts()
+        user_interactions = self.user_interaction_counts()
+        return self.stdev_of_users(user_visits, user_interactions)
+
+    def visit_conversions_stdev(self):
+        user_visits = self.user_visit_counts()
+        user_completions = self.user_completed_counts()
+        return self.stdev_of_users(user_visits, user_completions)
+
+    def stdev_of_users(self, user_totals, user_convs):
+        mean = self.mean_of_users(user_totals, user_convs)
+        keys = user_totals.keys()
+        # calculate average conversion rate for each user
+        val = 0.0
+        for k in keys:
+            # sum square of difference with mean
+            val2 = 0.0
+            if user_convs.has_key(k):
+                val2 = float(user_convs[k]) / float(user_totals[k])
+            val += pow(val2 - mean, 2)
+        try:
+            # then take square root of that mean
+            return pow(val / float(self.participant_count()), 0.5)
         except ZeroDivisionError:
             return 0
 
@@ -929,9 +1093,34 @@ class Alternative(object):
 
     def confidence_interval(self):
         try:
+            # https://stats.stackexchange.com/questions/142864/mean-vs-standard-deviation-for-data-ranging-between-0-and-1
             # 80% confidence
             p = self.conversion_rate()
-            return pow(p * (1 - p) / self.visit_count(), 0.5) * 1.28 * 100
+            return pow(p * (1 - p) / self.participant_count(), 0.5) * 1.28 * 100
+        except ZeroDivisionError:
+            return 0
+
+    def vr_confidence_interval(self):
+        try:
+            # 80% confidence
+            sd = self.visits_stdev()
+            return sd / pow(self.participant_count(), 0.5) * 1.28
+        except ZeroDivisionError:
+            return 0
+
+    def vir_confidence_interval(self):
+        try:
+            # 80% confidence
+            sd = self.visit_interactions_stdev()
+            return sd / pow(self.participant_count(), 0.5) * 1.28
+        except ZeroDivisionError:
+            return 0
+
+    def vcr_confidence_interval(self):
+        try:
+            # 80% confidence
+            sd = self.visit_conversions_stdev()
+            return sd / pow(self.participant_count(), 0.5) * 1.28
         except ZeroDivisionError:
             return 0
 
