@@ -619,16 +619,20 @@ class Alternative(object):
             'name': self.name,
             'data': data,
             'conversion_rate': float('%.2f' % (self.conversion_rate() * 100)),
-            'conv_per_visit': self.conversion_per_visit(),
-            'visit_per_user': self.visits_per_user(),
-            'conv_per_user': self.conversion_per_visit() * self.visits_per_user(),
+            'visit_rate': float('%.2f' % self.visits_per_user()),
+            'visit_interaction_rate': float('%.2f' % self.visit_interaction_rate()),
+            'visit_conversion_rate': float('%.2f' % self.visit_conversion_rate()),
             'is_control': self.is_control(),
             'is_winner': self.is_winner(),
             'test_statistic': self.g_stat(),
             'participant_count': self.participant_count(),
             'visit_count': self.visit_count(),
+            'interaction_count': self.interaction_count(),
             'completed_count': self.completed_count(),
             'confidence_level': self.confidence_level(),
+            'vr_confidence_interval': float('%.3f' % self.vr_confidence_interval()),
+            'vir_confidence_interval': float('%.3f' % self.vir_confidence_interval()),
+            'vcr_confidence_interval': float('%.3f' % self.vcr_confidence_interval()),
             'confidence_interval': self.confidence_interval()
         }
 

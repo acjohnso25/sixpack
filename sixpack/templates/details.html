@@ -79,11 +79,13 @@
     <tbody>
       <tr>
         <th>Case</th>
-        <th>Conversions</th>
-        <th>Visits</th>
         <th>Users</th>
+        <th>Avg Visits</th>
+        <th>Avg Duration</th>
+        <!--<th>Conversions</th>-->
         <th>Conv Rate</th>
-        <th>Confidence</th>
+        <th>Conv / Visit</th>
+        <!--<th>Confidence</th>-->
         <th>Actions</th>
       </tr>
       <% _.each(experiment.alternatives, function (alt, index) { %>
@@ -101,9 +103,30 @@
               <% } %>
             </div>
           </td>
-          <td><%- alt.completed_count %></td>
-          <td><%- alt.visit_count %> (<%- alt.conv_per_visit %>)</td>
-          <td><%- alt.participant_count %> (<%- alt.conv_per_user %>)</td>
+          <td><%- alt.participant_count %></td>
+          <td>
+            <%- alt.visit_rate %>
+            <span class="confidence-interval">&plusmn; <%- alt.vr_confidence_interval %></span>
+
+            <div class="boxplot"><div class="boxplot-inner">
+              <div class="boxplot-box boxplot-losing"  style="display: <%- alt.boxplotvr.losing.display  %>; left: <%- alt.boxplotvr.losing.start  %>%; right: <%- 100 - alt.boxplotvr.losing.end  %>%;"></div>
+              <div class="boxplot-box boxplot-neutral" style="display: <%- alt.boxplotvr.neutral.display %>; left: <%- alt.boxplotvr.neutral.start %>%; right: <%- 100 - alt.boxplotvr.neutral.end %>%;"></div>
+              <div class="boxplot-box boxplot-winning" style="display: <%- alt.boxplotvr.winning.display %>; left: <%- alt.boxplotvr.winning.start %>%; right: <%- 100 - alt.boxplotvr.winning.end %>%;"></div>
+            </div></div>
+            <br><span class="confidence-interval">(<%- alt.visit_count %> total)</span>
+          </td>
+          <td>
+            <%- alt.visit_interaction_rate %>
+            <span class="confidence-interval">&plusmn; <%- alt.vir_confidence_interval %></span>
+
+            <div class="boxplot"><div class="boxplot-inner">
+              <div class="boxplot-box boxplot-losing"  style="display: <%- alt.boxplotvir.losing.display  %>; left: <%- alt.boxplotvir.losing.start  %>%; right: <%- 100 - alt.boxplotvir.losing.end  %>%;"></div>
+              <div class="boxplot-box boxplot-neutral" style="display: <%- alt.boxplotvir.neutral.display %>; left: <%- alt.boxplotvir.neutral.start %>%; right: <%- 100 - alt.boxplotvir.neutral.end %>%;"></div>
+              <div class="boxplot-box boxplot-winning" style="display: <%- alt.boxplotvir.winning.display %>; left: <%- alt.boxplotvir.winning.start %>%; right: <%- 100 - alt.boxplotvir.winning.end %>%;"></div>
+            </div></div>
+            <br><span class="confidence-interval">(<%- alt.interaction_count %> total)</span>
+          </td>
+          <!--<td><%- alt.completed_count %></td>-->
           <td>
             <%- alt.conversion_rate %>
             <span class="confidence-interval">&plusmn; <%- alt.confidence_interval %></span>
@@ -114,7 +137,17 @@
               <div class="boxplot-box boxplot-winning" style="display: <%- alt.boxplot.winning.display %>; left: <%- alt.boxplot.winning.start %>%; right: <%- 100 - alt.boxplot.winning.end %>%;"></div>
             </div></div>
           </td>
-          <td><span title="<%- alt.test_statistic %>"><%= alt.confidence_level %><span></td>
+          <td>
+            <%- alt.visit_conversion_rate %>
+            <span class="confidence-interval">&plusmn; <%- alt.vcr_confidence_interval %></span>
+
+            <div class="boxplot"><div class="boxplot-inner">
+              <div class="boxplot-box boxplot-losing"  style="display: <%- alt.boxplotvcr.losing.display  %>; left: <%- alt.boxplotvcr.losing.start  %>%; right: <%- 100 - alt.boxplotvcr.losing.end  %>%;"></div>
+              <div class="boxplot-box boxplot-neutral" style="display: <%- alt.boxplotvcr.neutral.display %>; left: <%- alt.boxplotvcr.neutral.start %>%; right: <%- 100 - alt.boxplotvcr.neutral.end %>%;"></div>
+              <div class="boxplot-box boxplot-winning" style="display: <%- alt.boxplotvcr.winning.display %>; left: <%- alt.boxplotvcr.winning.start %>%; right: <%- 100 - alt.boxplotvcr.winning.end %>%;"></div>
+            </div></div>
+          </td>
+          <!--<td><span title="<%- alt.test_statistic %>"><%= alt.confidence_level %><span></td>-->
           <td>
             <div class="alt-controls">
               <% if (alt.is_winner) { %>

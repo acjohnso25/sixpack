@@ -47,11 +47,15 @@ $(function () {
       _.each(data.alternatives, function (alt, k) {
         data.alternatives[k].participant_count   = my.addCommas(alt.participant_count);
         data.alternatives[k].visit_count         = my.addCommas(alt.visit_count);
+        data.alternatives[k].interaction_count   = my.addCommas(alt.interaction_count);
         data.alternatives[k].completed_count     = Math.round(alt.completed_count * 1000) / 1000;
         data.alternatives[k].conversion_rate     = alt.conversion_rate.toFixed(2) + '%';
-        data.alternatives[k].conv_per_visit      = alt.conv_per_visit.toFixed(3);
-        data.alternatives[k].visit_per_user     = alt.visit_per_user.toFixed(3);
-        data.alternatives[k].conv_per_user       = alt.conv_per_user.toFixed(3);
+        data.alternatives[k].visit_rate          = alt.visit_rate.toFixed(2);
+        data.alternatives[k].visit_interaction_rate = alt.visit_interaction_rate.toFixed(2);
+        data.alternatives[k].visit_conversion_rate = alt.visit_conversion_rate.toFixed(2);
+        data.alternatives[k].vr_confidence_interval = alt.vr_confidence_interval.toFixed(2);
+        data.alternatives[k].vir_confidence_interval = alt.vir_confidence_interval.toFixed(2);
+        data.alternatives[k].vcr_confidence_interval = alt.vcr_confidence_interval.toFixed(2);
         data.alternatives[k].confidence_interval = alt.confidence_interval.toFixed(1) + '%';
         data.alternatives[k].confidence_level    = alt.confidence_level.replace('N/A', '&mdash;');
       });
@@ -119,21 +123,61 @@ $(function () {
 
     my.renderBoxplots = function(data) {
 
+      // normalize conversion rate boxplots
+      var convRateHi = function (alt) {
+        return alt.conversion_rate + alt.confidence_interval;
+      };
+      var convRateLo = function (alt) {
+        return alt.conversion_rate - alt.confidence_interval;
+      };
+      normalizeBoxplots(data, 'boxplot', convRateLo, convRateHi);
+
+      // normalize visit rate boxplots
+      var visRateHi = function (alt) {
+        return alt.visit_rate + alt.vr_confidence_interval;
+      };
+      var visRateLo = function (alt) {
+        return alt.visit_rate - alt.vr_confidence_interval;
+      };
+      normalizeBoxplots(data, 'boxplotvr', visRateLo, visRateHi);
+
+      // normalize visit interaction rate boxplots
+      var visInterRateHi = function (alt) {
+          return alt.visit_interaction_rate + alt.vir_confidence_interval;
+      };
+      var visInterRateLo = function (alt) {
+          return alt.visit_interaction_rate - alt.vir_confidence_interval;
+      };
+      normalizeBoxplots(data, 'boxplotvir', visInterRateLo, visInterRateHi);
+
+      // normalize visit conversion rate boxplots
+      var visConvRateHi = function (alt) {
+        return alt.visit_conversion_rate + alt.vcr_confidence_interval;
+      };
+      var visConvRateLo = function (alt) {
+        return alt.visit_conversion_rate - alt.vcr_confidence_interval;
+      };
+      normalizeBoxplots(data, 'boxplotvcr', visConvRateLo, visConvRateHi);
+
+      return data;
+    };
+
+    var normalizeBoxplots = function (data, bpName, loValFn, hiValFn) {
       var intervals = [],
           max =-Infinity,
           min = Infinity,
           control = null;
 
       _.each(data.alternatives, function (alt, k) {
-        max = Math.max(max, alt.conversion_rate + alt.confidence_interval);
-        min = Math.min(min, alt.conversion_rate - alt.confidence_interval);
+        max = Math.max(max, hiValFn(alt));
+        min = Math.min(min, loValFn(alt));
       });
 
       // Normalize the boxplot data
 
       _.each(data.alternatives, function (alt, k) {
-        var start = (alt.conversion_rate - alt.confidence_interval - min) / (max - min) * 100,
-            end   = (alt.conversion_rate + alt.confidence_interval - min) / (max - min) * 100,
+        var start = (loValFn(alt) - min) / (max - min) * 100,
+            end   = (hiValFn(alt) - min) / (max - min) * 100,
             neutral = {
               display: 'block',
               start: start,
@@ -167,14 +211,12 @@ $(function () {
           }
         }
 
-        data.alternatives[k].boxplot = {
+        data.alternatives[k][bpName] = {
           neutral: neutral,
           losing:  losing,
           winning: winning
         };
       });
-
-      return data;
     };
 
     return that;

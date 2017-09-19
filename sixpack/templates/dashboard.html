@@ -79,11 +79,12 @@
     <thead>
       <tr>
         <th>Case</th>
-        <th>Conversions</th>
-        <th>Visits</th>
         <th>Users</th>
+        <th>Avg Visits</th>
+        <th>Avg Duration</th>
         <th>Conv Rate</th>
-        <th>Confidence</th>
+        <th>Conv / Visit</th>
+        <!--<th>Confidence</th>-->
       </tr>
     </thead>
     <tbody>
@@ -102,11 +103,12 @@
               <% } %>
             </div>
           </td>
-          <td><%- alt.completed_count %></td>
-          <td><%- alt.visit_count %></td>
           <td><%- alt.participant_count %></td>
+          <td><%- alt.visit_rate %><span class="confidence-interval"> &plusmn; <%- alt.vr_confidence_interval %></span></td>
+          <td><%- alt.visit_interaction_rate %><span class="confidence-interval"> &plusmn; <%- alt.vir_confidence_interval %></span></td>
           <td><%- alt.conversion_rate %><span class="confidence-interval"> &plusmn; <%- alt.confidence_interval %></span></td>
-          <td><span title="<%- alt.test_statistic %>"><%= alt.confidence_level %><span></td>
+          <td><%- alt.visit_conversion_rate %><span class="confidence-interval"> &plusmn; <%- alt.vcr_confidence_interval %></span></td>
+          <!--<td><span title="<%- alt.test_statistic %>"><%= alt.confidence_level %><span></td>-->
         </tr>
       <% }); %>
     </tbody>
