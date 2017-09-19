@@ -19,7 +19,7 @@ $(function () {
       if (typeof kpi != 'undefined' && kpi !== false) {
         url += '&kpi=' + kpi;
       }
-      
+
       var promise = $.getJSON(url);
 
       promise.done(function(data) {
@@ -33,7 +33,6 @@ $(function () {
 
     // Add commas to a number
     my.addCommas = function (n) {
-      n = n || 0;
       while (/(\d+)(\d{3})/.test(n.toString())) {
         n = n.toString().replace(/(\d+)(\d{3})/, '$1'+','+'$2');
       }
