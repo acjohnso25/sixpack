@@ -113,7 +113,7 @@
               <div class="boxplot-box boxplot-neutral" style="display: <%- alt.boxplotvr.neutral.display %>; left: <%- alt.boxplotvr.neutral.start %>%; right: <%- 100 - alt.boxplotvr.neutral.end %>%;"></div>
               <div class="boxplot-box boxplot-winning" style="display: <%- alt.boxplotvr.winning.display %>; left: <%- alt.boxplotvr.winning.start %>%; right: <%- 100 - alt.boxplotvr.winning.end %>%;"></div>
             </div></div>
-            <br><span class="confidence-interval">(<%- alt.visit_count %> visits total)</span>
+            <br><span class="confidence-interval"><%- alt.visit_count %> total visits</span>
           </td>
           <td>
             <%- alt.visit_interaction_rate %>
@@ -124,7 +124,7 @@
               <div class="boxplot-box boxplot-neutral" style="display: <%- alt.boxplotvir.neutral.display %>; left: <%- alt.boxplotvir.neutral.start %>%; right: <%- 100 - alt.boxplotvir.neutral.end %>%;"></div>
               <div class="boxplot-box boxplot-winning" style="display: <%- alt.boxplotvir.winning.display %>; left: <%- alt.boxplotvir.winning.start %>%; right: <%- 100 - alt.boxplotvir.winning.end %>%;"></div>
             </div></div>
-            <br><span class="confidence-interval">(<%- alt.interaction_count %> interactions total)</span>
+            <br><span class="confidence-interval"><%- alt.interaction_count %> total interactions</span>
           </td>
           <!--<td><%- alt.completed_count %></td>-->
           <td>
@@ -136,6 +136,7 @@
               <div class="boxplot-box boxplot-neutral" style="display: <%- alt.boxplot.neutral.display %>; left: <%- alt.boxplot.neutral.start %>%; right: <%- 100 - alt.boxplot.neutral.end %>%;"></div>
               <div class="boxplot-box boxplot-winning" style="display: <%- alt.boxplot.winning.display %>; left: <%- alt.boxplot.winning.start %>%; right: <%- 100 - alt.boxplot.winning.end %>%;"></div>
             </div></div>
+            <br><span class="confidence-interval"><%- alt.completed_count %> total conversions</span>
           </td>
           <td>
             <%- alt.visit_conversion_rate %>
