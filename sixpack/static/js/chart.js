@@ -150,58 +150,12 @@ $(function () {
         .attr("cy", function(d) { return my.yScale(d.close); })
         .attr("style", "fill:" + color)
         .on("mouseover", function (d) {
-
-          // Make the circle larger
-          d3.select(this)
-            .attr("r", size + 3)
-            .attr('class', 'circle circle-' + line_id + ' circle-hover');
-
-          // Make the line thicker
-          var line = d3.select('#' + line_id);
-          var currClass = line.attr('class');
-          line.attr('class', currClass + ' line-hover');
-
-          // Highlight corresponding table alternative
-          var table = $('.' + line_id).closest('div').find('table')
-          table.find('tr').removeClass('highlight');
-          table.find('.' + line_id).addClass('highlight');
-
-          // Move the line all circles of the line to the front
-          $('#' + line_id + ', .circle-' + line_id).each(function() {
-            this.parentNode.appendChild(this);
-          });
-
-          // Show the tooltip
-          var pct = (Math.round(d.close * 1000) / 10) + '%',
-              date = new Date(d.date),
-              month = ['Jan.', 'Feb.', 'March', 'April', 'May', 'June', 'July', 'Aug.', 'Sep.', 'Oct.', 'Nov.', 'Dec.'],
-              dateString = month[date.getMonth()] + ' ' + date.getDate() + ', ' + date.getFullYear(),
-              pos = $(this).offset(),
-              tooltipCircle = '<span class="tooltip-circle" style="background: ' + $(this).css('fill') + ';"></span> ';
-
-          $('#tooltip')
-            .html(tooltipCircle + dateString + ' &nbsp; ' + pct)
-            .show()
-            .css({
-              left: pos.left + 8 - (parseInt($('#tooltip').outerWidth()) / 2),
-              top:  pos.top - 30
-            });
+          var val = (Math.round(d.close * 1000) / 10) + '% conversion',
+              date = new Date(d.date);
+          circleMouseover(this, line_id, val, date);
         })
         .on("mouseout", function (d) {
-          // Return circle to normal
-          d3.select(this)
-            .attr("r", size)
-            .attr('class', 'circle circle-' + line_id);
-
-          // Unhighlight the line
-          var line = d3.select('#' + line_id);
-          line.attr('class', 'line');
-
-          // Remove table highlight
-          $('.' + line_id).removeClass('highlight');
-
-          // Hide the tooltip
-          $('#tooltip').hide();
+          circleMouseout(this, line_id);
         });
 
       my.svg.selectAll("dot")
@@ -214,59 +168,66 @@ $(function () {
         .attr("cy", function(d) { return my.y2Scale(d.open); })
         .attr("style", "fill:" + color)
         .on("mouseover", function (d) {
-
-          // Make the circle larger
-          d3.select(this)
-            .attr("r", size + 3)
-            .attr('class', 'circle circle-' + line2_id + ' circle-hover');
-
-          // Make the line thicker
-          var line = d3.select('#' + line2_id);
-          var currClass = line.attr('class');
-          line.attr('class', currClass + ' line-hover');
-
-          // Highlight corresponding table alternative
-          var table = $('.' + line2_id).closest('div').find('table')
-          table.find('tr').removeClass('highlight');
-          table.find('.' + line2_id).addClass('highlight');
-
-          // Move the line all circles of the line to the front
-          $('#' + line2_id + ', .circle-' + line2_id).each(function() {
-             this.parentNode.appendChild(this);
-          });
-
-          // Show the tooltip
-          var val = d.open,
-              date = new Date(d.date),
-              month = ['Jan.', 'Feb.', 'March', 'April', 'May', 'June', 'July', 'Aug.', 'Sep.', 'Oct.', 'Nov.', 'Dec.'],
-              dateString = month[date.getMonth()] + ' ' + date.getDate() + ', ' + date.getFullYear(),
-              pos = $(this).offset(),
-              tooltipCircle = '<span class="tooltip-circle" style="background: ' + $(this).css('fill') + ';"></span> ';
-
-          $('#tooltip')
-            .html(tooltipCircle + dateString + ' &nbsp; ' + val)
-            .show()
-            .css({
-              left: pos.left + 8 - (parseInt($('#tooltip').outerWidth()) / 2),
-              top:  pos.top - 30
-            });
+          var val = (Math.round(d.open * 100) / 100) + ' per visit',
+              date = new Date(d.date);
+          circleMouseover(this, line2_id, val, date);
         })
         .on("mouseout", function (d) {
-          // Return circle to normal
-          d3.select(this)
-            .attr("r", size)
-            .attr('class', 'circle circle-' + line2_id);
-
-          // Unhighlight the line
-          var line = d3.select('#' + line2_id);
-          line.attr('class', 'line');
-
-          // Remove table highlight
-          $('.' + line2_id).removeClass('highlight');
-
-          // Hide the tooltip
-          $('#tooltip').hide();
+          circleMouseout(this, line2_id);
         });
+
+      var circleMouseover = function (self, lid, val, date) {
+        // Make the circle larger
+        d3.select(self)
+          .attr("r", size + 3)
+          .attr('class', 'circle circle-' + lid + ' circle-hover');
+
+        // Make the line thicker
+        var line = d3.select('#' + lid);
+        var currClass = line.attr('class');
+        line.attr('class', currClass + ' line-hover');
+
+        // Highlight corresponding table alternative
+        var table = $('.' + line_id).closest('div').find('table');
+        table.find('tr').removeClass('highlight');
+        table.find('.' + line_id).addClass('highlight');
+
+        // Move the line all circles of the line to the front
+        $('#' + lid + ', .circle-' + lid).each(function() {
+          this.parentNode.appendChild(this);
+        });
+
+        // Show the tooltip
+        var month = ['Jan.', 'Feb.', 'March', 'April', 'May', 'June', 'July', 'Aug.', 'Sep.', 'Oct.', 'Nov.', 'Dec.'],
+            dateString = month[date.getMonth()] + ' ' + date.getDate() + ', ' + date.getFullYear(),
+            pos = $(self).offset(),
+            tooltipCircle = '<span class="tooltip-circle" style="background: ' + $(self).css('fill') + ';"></span> ';
+
+        $('#tooltip')
+           .html(tooltipCircle + dateString + ' &nbsp; ' + val)
+           .show()
+           .css({
+             left: pos.left + 8 - (parseInt($('#tooltip').outerWidth()) / 2),
+             top:  pos.top - 30
+           });
+      };
+
+      var circleMouseout = function (self, lid) {
+        // Return circle to normal
+        d3.select(self)
+          .attr("r", size)
+          .attr('class', 'circle circle-' + lid);
+
+        // Unhighlight the line
+        var line = d3.select('#' + lid);
+        line.attr('class', 'line');
+
+        // Remove table highlight
+        $('.' + line_id).removeClass('highlight');
+
+        // Hide the tooltip
+        $('#tooltip').hide();
+      };
     };
 
 
@@ -283,22 +244,6 @@ $(function () {
         .attr("r", 5)
         .attr("cx", function(d) { return my.xScale(d.date); })
         .attr("cy", function(d) { return my.yScale(d.close); })
-        .attr("style", "fill:" + color)
-        .on("mouseover", function (d) {
-          // Sort the lines so the current line is "above" the non-hovered lines
-          d3.select(this.parentNode.appendChild(this));
-        });
-
-      id = my.experiment + "-line2-" + _.indexOf(my.colors, color);
-      my.svg.selectAll("dot")
-        .data(data)
-        .enter()
-        .append("circle")
-        .attr("class", "circle")
-        .attr("id", id)
-        .attr("r", 5)
-        .attr("cx", function(d) { return my.xScale(d.date); })
-        .attr("cy", function(d) { return my.y2Scale(d.open); })
         .attr("style", "fill:" + color)
         .on("mouseover", function (d) {
           // Sort the lines so the current line is "above" the non-hovered lines
